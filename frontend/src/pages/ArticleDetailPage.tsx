@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Button, Paper, Typography } from "@mui/material";
+import { Alert, Box, Button, Paper, Typography } from "@mui/material";
 
 import { apiFetch, ApiError } from "../api/client";
 import { LoadingState, ErrorState } from "../components/AsyncState";
@@ -17,14 +18,23 @@ export default function ArticleDetailPage() {
     enabled: Boolean(slug),
   });
 
-  const feedbackMutation = useMutation({
-    mutationFn: (resolved: boolean) =>
-      apiFetch(`/api/v1/articles/${query.data!.id}/feedback`, {
-        method: "PUT",
-        body: JSON.stringify({ resolved }),
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["article", slug] }),
-  });
+const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+const feedbackMutation = useMutation({
+  mutationFn: (resolved: boolean) =>
+    apiFetch(`/api/v1/articles/${query.data!.id}/feedback`, {
+      method: "PUT",
+      body: JSON.stringify({ resolved }),
+    }),
+  onSuccess: (_data, resolved) => {
+    setFeedbackMessage(
+      resolved
+        ? "Obrigado pelo feedback. Ficamos felizes que o artigo ajudou."
+        : "Feedback registrado. Você pode abrir um chamado para receber ajuda."
+    );
+    queryClient.invalidateQueries({ queryKey: ["article", slug] });
+  },
+});
 
   if (query.isLoading) return <LoadingState label="Carregando artigo..." />;
   if (query.isError) {
@@ -49,6 +59,11 @@ export default function ArticleDetailPage() {
       <Typography variant="subtitle1" gutterBottom>
         Este artigo resolveu sua duvida?
       </Typography>
+      {feedbackMessage && (
+  <Alert severity="success" sx={{ mb: 2 }} aria-live="polite">
+    {feedbackMessage}
+  </Alert>
+)}
       <Box sx={{ display: "flex", gap: 2 }}>
         <Button variant="contained" color="success" onClick={() => feedbackMutation.mutate(true)}>
           Sim, resolveu
