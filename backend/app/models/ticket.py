@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
 from app.models.enums import TicketCategory, TicketPriority, TicketStatus
@@ -38,6 +38,15 @@ class Ticket(Base):
     )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    requester = relationship("User", foreign_keys=[requester_id])
+    assignee = relationship("User", foreign_keys=[assignee_id])
+    events = relationship(
+        "TicketEvent",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+        order_by="TicketEvent.created_at",
+    )
+
 
 class TicketEvent(Base):
     __tablename__ = "ticket_events"
@@ -55,3 +64,6 @@ class TicketEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
+
+    ticket = relationship("Ticket", back_populates="events")
+    author = relationship("User", foreign_keys=[author_id])

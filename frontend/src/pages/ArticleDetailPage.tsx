@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert, Box, Button, Paper, Typography } from "@mui/material";
 
@@ -11,6 +11,7 @@ export default function ArticleDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const query = useQuery({
     queryKey: ["article", slug],
@@ -18,23 +19,21 @@ export default function ArticleDetailPage() {
     enabled: Boolean(slug),
   });
 
-const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-
-const feedbackMutation = useMutation({
-  mutationFn: (resolved: boolean) =>
-    apiFetch(`/api/v1/articles/${query.data!.id}/feedback`, {
-      method: "PUT",
-      body: JSON.stringify({ resolved }),
-    }),
-  onSuccess: (_data, resolved) => {
-    setFeedbackMessage(
-      resolved
-        ? "Obrigado pelo feedback. Ficamos felizes que o artigo ajudou."
-        : "Feedback registrado. Você pode abrir um chamado para receber ajuda."
-    );
-    queryClient.invalidateQueries({ queryKey: ["article", slug] });
-  },
-});
+  const feedbackMutation = useMutation({
+    mutationFn: (resolved: boolean) =>
+      apiFetch(`/api/v1/articles/${query.data!.id}/feedback`, {
+        method: "PUT",
+        body: JSON.stringify({ resolved }),
+      }),
+    onSuccess: (_data, resolved) => {
+      setFeedbackMessage(
+        resolved
+          ? "Obrigado pelo feedback. Ficamos felizes que o artigo ajudou."
+          : "Feedback registrado. Voce pode abrir um chamado para receber ajuda."
+      );
+      queryClient.invalidateQueries({ queryKey: ["article", slug] });
+    },
+  });
 
   if (query.isLoading) return <LoadingState label="Carregando artigo..." />;
   if (query.isError) {
@@ -60,15 +59,15 @@ const feedbackMutation = useMutation({
         Este artigo resolveu sua duvida?
       </Typography>
       {feedbackMessage && (
-  <Alert severity="success" sx={{ mb: 2 }} aria-live="polite">
-    {feedbackMessage}
-  </Alert>
-)}
+        <Alert severity="success" sx={{ mb: 2 }} aria-live="polite">
+          {feedbackMessage}
+        </Alert>
+      )}
       <Box sx={{ display: "flex", gap: 2 }}>
-        <Button variant="contained" color="success" onClick={() => feedbackMutation.mutate(true)}>
+        <Button variant="contained" color="success" onClick={() => feedbackMutation.mutate(true)} disabled={feedbackMutation.isPending}>
           Sim, resolveu
         </Button>
-        <Button variant="outlined" color="warning" onClick={handleNotResolved}>
+        <Button variant="outlined" color="warning" onClick={handleNotResolved} disabled={feedbackMutation.isPending}>
           Nao resolveu, abrir chamado
         </Button>
       </Box>
