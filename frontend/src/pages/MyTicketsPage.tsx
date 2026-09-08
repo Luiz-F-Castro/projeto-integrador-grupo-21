@@ -1,32 +1,58 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Chip, List, ListItemButton, ListItemText, Typography } from "@mui/material";
+import {
+  Chip,
+  List,
+  ListItemButton,
+  ListItemText,
+  MenuItem,
+  TextField,
+  Typography,
+} from "@mui/material";
 
 import { apiFetch, ApiError } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { LoadingState, EmptyState, ErrorState } from "../components/AsyncState";
-import type { TicketSummary } from "../types/domain";
+import type { TicketStatus, TicketSummary } from "../types/domain";
 
-const STATUS_COLOR: Record<string, "default" | "warning" | "info" | "success"> = {
-  OPEN: "default",
-  TRIAGE: "warning",
-  IN_PROGRESS: "info",
-  RESOLVED: "success",
-};
+const STATUS_COLOR: Record<string, "default" | "warning" | "info" | "success"> =
+  {
+    OPEN: "default",
+    TRIAGE: "warning",
+    IN_PROGRESS: "info",
+    RESOLVED: "success",
+  };
 
 export default function MyTicketsPage() {
+  const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusFilter = (searchParams.get("status") ?? "") as
+    TicketStatus | "ACTIVE" | "";
   const query = useQuery({
-    queryKey: ["my-tickets"],
-    queryFn: () => apiFetch<TicketSummary[]>("/api/v1/tickets"),
+    queryKey: ["user", user?.id, "my-tickets", statusFilter],
+    queryFn: () => {
+      const suffix =
+        statusFilter && statusFilter !== "ACTIVE"
+          ? `?status=${statusFilter}`
+          : "";
+      return apiFetch<TicketSummary[]>(`/api/v1/tickets${suffix}`);
+    },
   });
+
+  const tickets =
+    statusFilter === "ACTIVE"
+      ? query.data?.filter((ticket) =>
+          ["TRIAGE", "IN_PROGRESS"].includes(ticket.status),
+        )
+      : query.data;
 
   if (query.isLoading) return <LoadingState label="Carregando chamados..." />;
   if (query.isError) {
-    const message = query.error instanceof ApiError ? query.error.message : "Erro ao carregar chamados.";
+    const message =
+      query.error instanceof ApiError
+        ? query.error.message
+        : "Erro ao carregar chamados.";
     return <ErrorState message={message} onRetry={() => query.refetch()} />;
-  }
-
-  if (query.data && query.data.length === 0) {
-    return <EmptyState message="Voce ainda nao abriu nenhum chamado." />;
   }
 
   return (
@@ -34,18 +60,50 @@ export default function MyTicketsPage() {
       <Typography variant="h5" gutterBottom>
         Meus chamados
       </Typography>
-      <List>
-        {query.data?.map((ticket) => (
-          <ListItemButton key={ticket.id} component={Link} to={`/chamados/${ticket.id}`}>
-            <ListItemText
-              primary={`${ticket.protocol} - ${ticket.title}`}
-              secondary={new Date(ticket.created_at).toLocaleString("pt-BR")}
-            />
-            <Chip label={ticket.status} color={STATUS_COLOR[ticket.status]} size="small" sx={{ mr: 1 }} />
-            <Chip label={ticket.priority} variant="outlined" size="small" />
-          </ListItemButton>
-        ))}
-      </List>
+      <TextField
+        select
+        label="Status"
+        value={statusFilter}
+        onChange={(event) => {
+          const next = new URLSearchParams(searchParams);
+          if (event.target.value) next.set("status", event.target.value);
+          else next.delete("status");
+          setSearchParams(next, { replace: true });
+        }}
+        sx={{ mb: 2, minWidth: 220 }}
+      >
+        <MenuItem value="">Todos os status</MenuItem>
+        <MenuItem value="OPEN">Abertos</MenuItem>
+        <MenuItem value="ACTIVE">Em atendimento</MenuItem>
+        <MenuItem value="TRIAGE">Triagem</MenuItem>
+        <MenuItem value="IN_PROGRESS">Em andamento</MenuItem>
+        <MenuItem value="RESOLVED">Resolvidos</MenuItem>
+      </TextField>
+      {tickets && tickets.length === 0 ? (
+        <EmptyState message="Nenhum chamado encontrado para este filtro." />
+      ) : (
+        <List>
+          {tickets?.map((ticket) => (
+            <ListItemButton
+              key={ticket.id}
+              component={Link}
+              to={`/chamados/${ticket.id}`}
+            >
+              <ListItemText
+                primary={`${ticket.protocol} - ${ticket.title}`}
+                secondary={new Date(ticket.created_at).toLocaleString("pt-BR")}
+              />
+              <Chip
+                label={ticket.status}
+                color={STATUS_COLOR[ticket.status]}
+                size="small"
+                sx={{ mr: 1 }}
+              />
+              <Chip label={ticket.priority} variant="outlined" size="small" />
+            </ListItemButton>
+          ))}
+        </List>
+      )}
     </>
   );
 }

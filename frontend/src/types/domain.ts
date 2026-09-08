@@ -1,4 +1,5 @@
-export type ArticleCategory = "ACCESS" | "SOFTWARE" | "NETWORK" | "HARDWARE" | "SECURITY";
+export type ArticleCategory =
+  "ACCESS" | "SOFTWARE" | "NETWORK" | "HARDWARE" | "SECURITY";
 export type TicketCategory = ArticleCategory | "OTHER";
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type TicketStatus = "OPEN" | "TRIAGE" | "IN_PROGRESS" | "RESOLVED";
@@ -32,11 +33,13 @@ export interface TicketSummary {
   assignee: UserRef | null;
   created_at: string;
   updated_at: string;
+  resolved_at: string | null;
 }
 
 export interface TicketEvent {
   id: string;
   author_id: string;
+  author: UserRef;
   from_status: TicketStatus | null;
   to_status: TicketStatus;
   comment: string | null;
